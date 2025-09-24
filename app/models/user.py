@@ -33,6 +33,10 @@ class PyObjectId(str):
                 return v
             raise ValueError("Invalid ObjectId")
         raise ValueError("Invalid ObjectId")
+    
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
 
 
 class UserIn(BaseModel):
@@ -57,7 +61,7 @@ class UserOut(BaseModel):
 
 class UserDB(BaseModel):
     """User database model with all fields including hashed_password"""
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    id: Optional[PyObjectId] = Field(default=None, alias="_id")
     email: EmailStr
     role: Literal["guardian", "driver", "admin"]
     hashed_password: str

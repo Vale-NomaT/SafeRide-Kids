@@ -37,16 +37,23 @@ async def register(user_data: UserIn):
     
     Returns the created user without password information.
     """
+    print(f"🔍 Registration attempt for email: {user_data.email}")
+    print(f"🔍 Password length: {len(user_data.password)}")
+    print(f"🔍 Role: {user_data.role}")
+    
     try:
         user = await create_user(user_data)
+        print(f"✅ User created successfully: {user.email}")
         return RegisterResponse(
             message="User registered successfully",
             user=user
         )
     except HTTPException as e:
+        print(f"❌ HTTP Exception during registration: {e.detail}")
         # Re-raise HTTP exceptions from the service layer
         raise e
     except Exception as e:
+        print(f"❌ Unexpected error during registration: {str(e)}")
         # Handle unexpected errors
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

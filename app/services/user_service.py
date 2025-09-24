@@ -11,7 +11,12 @@ async def create_user(user_data: UserIn) -> UserOut:
     db = await get_database()
     
     # Check if user already exists
+    print(f"🔍 Checking for existing user with email: {user_data.email}")
     existing_user = await db.users.find_one({"email": user_data.email})
+    print(f"🔍 Existing user found: {existing_user is not None}")
+    if existing_user:
+        print(f"🔍 Existing user details: {existing_user}")
+    
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -24,17 +29,32 @@ async def create_user(user_data: UserIn) -> UserOut:
     
     user_in_db = UserDB(**user_dict)
     
+    print(f"🔍 Attempting to insert user: {user_in_db.email}")
+    
     try:
-        result = await db.users.insert_one(user_in_db.dict(by_alias=True))
+        # Convert to dict and remove None _id to let MongoDB generate it
+        user_doc = user_in_db.dict(by_alias=True, exclude_none=True)
+        if "_id" in user_doc and user_doc["_id"] is None:
+            del user_doc["_id"]
+        
+        result = await db.users.insert_one(user_doc)
+        print(f"✅ User inserted successfully with ID: {result.inserted_id}")
         created_user = await db.users.find_one({"_id": result.inserted_id})
         # Ensure _id is properly converted to string
         if "_id" in created_user and created_user["_id"]:
             created_user["_id"] = str(created_user["_id"])
         return UserOut(**created_user)
-    except DuplicateKeyError:
+    except DuplicateKeyError as e:
+        print(f"❌ DuplicateKeyError during insertion: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered"
+        )
+    except Exception as e:
+        print(f"❌ Unexpected error during insertion: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred during user creation"
         )
 
 

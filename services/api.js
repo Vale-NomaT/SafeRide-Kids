@@ -1,9 +1,17 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
+// Detect platform and use appropriate URL
 // For web development, use localhost. For mobile device testing, use your local IP
-// To find your IP: Windows - ipconfig, Mac/Linux - ifconfig
-const API_BASE_URL = 'http://10.100.0.222:8000'; // Campus network IP for mobile device testing
+const getApiBaseUrl = () => {
+  if (Platform.OS === 'web') {
+    return 'http://localhost:8000'; // Use localhost for web to avoid CORS issues
+  }
+  return 'http://10.100.0.222:8000'; // Network IP for mobile device testing
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 const api = axios.create({
   baseURL: API_BASE_URL,

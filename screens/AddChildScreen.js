@@ -134,7 +134,7 @@ const AddChildScreen = ({ navigation }) => {
 
       // Submit to API
       const response = await axios.post(
-        'http://localhost:8000/api/children',
+        'http://10.100.0.222:8000/api/children',
         childData,
         {
           headers: {

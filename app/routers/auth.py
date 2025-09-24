@@ -1,9 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from pydantic import BaseModel, EmailStr, Field
+import logging
+import traceback
 from app.models.user import UserIn, UserOut, Token
 from app.services.user_service import create_user, authenticate_user
 from app.auth.utils import create_access_token
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 # OAuth2PasswordBearer for token extraction (used by middleware)
@@ -37,27 +42,50 @@ async def register(user_data: UserIn):
     
     Returns the created user without password information.
     """
-    print(f"🔍 Registration attempt for email: {user_data.email}")
-    print(f"🔍 Password length: {len(user_data.password)}")
-    print(f"🔍 Role: {user_data.role}")
+    logger.info("🚀 REGISTRATION ENDPOINT CALLED")
+    logger.info(f"📧 Email: {user_data.email}")
+    logger.info(f"🔐 Password length: {len(user_data.password)}")
+    logger.info(f"👤 Role: {user_data.role}")
+    logger.info(f"📋 Full user data: {user_data.dict(exclude={'password'})}")
     
     try:
+        logger.info("🔄 Step 1: Calling create_user service...")
         user = await create_user(user_data)
-        print(f"✅ User created successfully: {user.email}")
-        return RegisterResponse(
+        
+        logger.info("✅ Step 2: User created successfully!")
+        logger.info(f"👤 Created user ID: {user.id}")
+        logger.info(f"📧 Created user email: {user.email}")
+        logger.info(f"🏷️  Created user role: {user.role}")
+        
+        response = RegisterResponse(
             message="User registered successfully",
             user=user
         )
+        
+        logger.info("📤 Step 3: Sending successful response")
+        logger.info(f"📊 Response: {response.dict()}")
+        
+        return response
+        
     except HTTPException as e:
-        print(f"❌ HTTP Exception during registration: {e.detail}")
+        logger.error("❌ HTTP Exception during registration!")
+        logger.error(f"🔢 Status code: {e.status_code}")
+        logger.error(f"📝 Detail: {e.detail}")
+        logger.error(f"📋 Headers: {e.headers}")
         # Re-raise HTTP exceptions from the service layer
         raise e
+        
     except Exception as e:
-        print(f"❌ Unexpected error during registration: {str(e)}")
+        logger.error("❌ UNEXPECTED ERROR during registration!")
+        logger.error(f"🔍 Error type: {type(e).__name__}")
+        logger.error(f"📝 Error message: {str(e)}")
+        logger.error(f"📚 Full traceback:")
+        logger.error(traceback.format_exc())
+        
         # Handle unexpected errors
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred during registration"
+            detail=f"An error occurred during registration: {str(e)}"
         )
 
 

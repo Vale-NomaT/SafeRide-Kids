@@ -51,7 +51,7 @@ const SignupScreen = ({ navigation }) => {
         if (loginResult.success) {
           console.log('Login successful, navigating to main app...');
           // Navigate to main app
-          navigation.replace('Main');
+          navigation.replace('Home');
         } else {
           console.log('Login failed after registration');
           Alert.alert('Registration Successful', 'Please login with your credentials');

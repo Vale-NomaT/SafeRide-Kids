@@ -8,7 +8,7 @@ const getApiBaseUrl = () => {
   if (Platform.OS === 'web') {
     return 'http://localhost:8000'; // Use localhost for web to avoid CORS issues
   }
-  return 'http://10.100.0.222:8000'; // Network IP for mobile device testing
+  return 'http://192.168.137.1:8000'; // PC Hotspot IP for mobile device testing
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -110,22 +110,99 @@ export const login = async (email, password) => {
 
 export const register = async (email, password, role = 'guardian') => {
   try {
-    console.log('API: Starting registration request...', { email, role });
-    console.log('API: Using base URL:', API_BASE_URL);
+    console.log('🚀 API: Starting registration request...');
+    console.log('📧 API: Email:', email);
+    console.log('👤 API: Role:', role);
+    console.log('🌐 API: Using base URL:', API_BASE_URL);
+    console.log('📱 API: Platform:', Platform.OS);
     
+    // Test basic connectivity first
+    console.log('🔍 API: Testing basic connectivity...');
+    
+    // Add timeout and more detailed config
+    const requestConfig = {
+      timeout: 10000, // 10 second timeout
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      }
+    };
+    
+    console.log('📋 API: Request config:', requestConfig);
+    console.log('📦 API: Request payload:', { email, password: '[HIDDEN]', role });
+    
+    // Try to ping the server first
+    try {
+      console.log('🏓 API: Pinging server health endpoint...');
+      const healthResponse = await api.get('/health', { timeout: 5000 });
+      console.log('✅ API: Health check successful:', healthResponse.data);
+    } catch (healthError) {
+      console.error('❌ API: Health check failed:', healthError.message);
+      console.error('🔧 API: Health error details:', {
+        code: healthError.code,
+        message: healthError.message,
+        response: healthError.response?.data,
+        status: healthError.response?.status
+      });
+    }
+    
+    console.log('📤 API: Sending registration request...');
     const response = await api.post('/auth/register', {
       email,
       password,
       role
-    });
+    }, requestConfig);
     
-    console.log('API: Registration response:', response.data);
+    console.log('✅ API: Registration response received!');
+    console.log('📊 API: Response status:', response.status);
+    console.log('📄 API: Response headers:', response.headers);
+    console.log('💾 API: Response data:', response.data);
+    
     return { success: true, data: response.data };
   } catch (error) {
-    console.error('API: Registration error:', error);
-    console.error('API: Error response:', error.response?.data);
-    console.error('API: Error status:', error.response?.status);
-    console.error('API: Error message:', error.message);
+    console.error('❌ API: Registration error occurred!');
+    console.error('🔍 API: Error type:', error.constructor.name);
+    console.error('📝 API: Error message:', error.message);
+    console.error('🔢 API: Error code:', error.code);
+    
+    // Network-specific debugging
+    if (error.code === 'NETWORK_ERROR' || error.message === 'Network Error') {
+      console.error('🌐 API: NETWORK ERROR DETECTED!');
+      console.error('🔧 API: This could be due to:');
+      console.error('   - Firewall blocking the connection');
+      console.error('   - Server not running on specified port');
+      console.error('   - Incorrect IP address');
+      console.error('   - Mobile device not on same network');
+      console.error('   - CORS issues (less likely for mobile)');
+    }
+    
+    // Detailed error analysis
+    if (error.response) {
+      console.error('📡 API: Server responded with error');
+      console.error('🔢 API: Error status:', error.response.status);
+      console.error('📄 API: Error headers:', error.response.headers);
+      console.error('💾 API: Error data:', error.response.data);
+    } else if (error.request) {
+      console.error('📡 API: Request was made but no response received');
+      console.error('🔧 API: Request details:', error.request);
+      console.error('🌐 API: This indicates a network connectivity issue');
+    } else {
+      console.error('⚙️ API: Error in setting up the request');
+      console.error('🔧 API: Setup error:', error.message);
+    }
+    
+    // Additional debugging info
+    console.error('🔍 API: Full error object:', {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+      config: error.config ? {
+        url: error.config.url,
+        method: error.config.method,
+        baseURL: error.config.baseURL,
+        timeout: error.config.timeout
+      } : 'No config'
+    });
     
     // Handle validation errors from FastAPI
     let errorMessage = 'Registration failed';

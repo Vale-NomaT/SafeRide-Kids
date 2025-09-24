@@ -1,9 +1,15 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+import time
+import logging
 from app.database import connect_to_mongo, close_mongo_connection
 from app.routers.auth import router as auth_router
 from app.routers.child import router as child_router
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -54,6 +60,54 @@ app.add_middleware(
         "Access-Control-Request-Headers",
     ],
 )
+
+# Add request logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    
+    # Log incoming request
+    logger.info(f"🔵 INCOMING REQUEST:")
+    logger.info(f"   📍 Method: {request.method}")
+    logger.info(f"   🌐 URL: {request.url}")
+    logger.info(f"   📡 Client IP: {request.client.host}")
+    logger.info(f"   📋 Headers: {dict(request.headers)}")
+    logger.info(f"   🔧 User-Agent: {request.headers.get('user-agent', 'Unknown')}")
+    
+    # Process request
+    response = await call_next(request)
+    
+    # Log response
+    process_time = time.time() - start_time
+    logger.info(f"🔴 OUTGOING RESPONSE:")
+    logger.info(f"   📊 Status: {response.status_code}")
+    logger.info(f"   ⏱️  Process Time: {process_time:.4f}s")
+    logger.info(f"   📄 Headers: {dict(response.headers)}")
+    
+    return response
+
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for connectivity testing"""
+    logger.info("🏥 Health check endpoint called")
+    return {
+        "status": "healthy",
+        "message": "SafeRide Kids API is running",
+        "timestamp": time.time(),
+        "version": "1.0.0"
+    }
+
+# Root endpoint
+@app.get("/")
+async def root():
+    """Root endpoint"""
+    logger.info("🏠 Root endpoint called")
+    return {
+        "message": "Welcome to SafeRide Kids API",
+        "docs": "/docs",
+        "health": "/health"
+    }
 
 # Include routers
 app.include_router(auth_router)

@@ -82,3 +82,4 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     email: Optional[str] = None
     role: Optional[str] = None
+    user_id: Optional[str] = None

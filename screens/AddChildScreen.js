@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,11 @@ import {
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
+import { api } from '../services/api.js';
+// For mobile image picker
+import * as ImagePicker from 'expo-image-picker';
+// For date picker
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const { width, height } = Dimensions.get('window');
 
@@ -57,8 +61,8 @@ const AddChildScreen = ({ navigation }) => {
     }
   };
 
-  // Web-compatible image picker
-  const handleImagePicker = () => {
+  // Image picker implementation
+  const handleImagePicker = async () => {
     if (Platform.OS === 'web') {
       const input = document.createElement('input');
       input.type = 'file';
@@ -76,8 +80,29 @@ const AddChildScreen = ({ navigation }) => {
       };
       input.click();
     } else {
-      // For mobile, you would use react-native-image-picker
-      Alert.alert('Image Picker', 'Image picker not available on this platform');
+      // For mobile, use expo-image-picker
+      try {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Denied', 'We need access to your photo library to select an image');
+          return;
+        }
+        
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.8,
+        });
+        
+        if (!result.canceled && result.assets && result.assets.length > 0) {
+          setSelectedImage(result.assets[0].uri);
+          setValue('photo_url', result.assets[0].uri);
+        }
+      } catch (error) {
+        console.error('Image picker error:', error);
+        Alert.alert('Error', 'Failed to pick image');
+      }
     }
   };
 
@@ -133,8 +158,8 @@ const AddChildScreen = ({ navigation }) => {
       };
 
       // Submit to API
-      const response = await axios.post(
-        'http://10.100.0.222:8000/api/children',
+      const response = await api.post(
+        '/children',
         childData,
         {
           headers: {
@@ -212,11 +237,44 @@ const AddChildScreen = ({ navigation }) => {
               onPress={() => setShowDatePicker(true)}
             >
               <Text style={styles.inputText}>
-                {watchedValues.dateOfBirth.toDateString()}
+                {watchedValues.dateOfBirth ? watchedValues.dateOfBirth.toDateString() : 'Select Date'}
               </Text>
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Mobile Date Picker Modal */}
+        {Platform.OS !== 'web' && showDatePicker && (
+          <Modal
+            transparent={true}
+            visible={showDatePicker}
+            animationType="fade"
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Select Date of Birth</Text>
+                <DateTimePicker
+                  value={watchedValues.dateOfBirth || new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  maximumDate={new Date()}
+                  onChange={(_, selectedDate) => {
+                    if (selectedDate) {
+                      setValue('dateOfBirth', selectedDate);
+                    }
+                    setShowDatePicker(false);
+                  }}
+                />
+                <TouchableOpacity
+                  style={styles.modalButton}
+                  onPress={() => setShowDatePicker(false)}
+                >
+                  <Text style={styles.modalButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+        )}
 
         {/* Photo */}
         <View style={styles.inputGroup}>
@@ -397,6 +455,41 @@ const styles = StyleSheet.create({
     padding: 15,
     fontSize: 16,
     backgroundColor: '#fff',
+  },
+  inputText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '80%',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 20,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: '#333',
+  },
+  modalButton: {
+    marginTop: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   inputError: {
     borderColor: '#ff4444',

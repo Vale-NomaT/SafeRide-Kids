@@ -24,19 +24,25 @@ async def create_child(guardian_id: str, child_data: ChildIn) -> ChildOut:
     """
     db = await get_database()
     
-    # Validate guardian_id format
-    if not ObjectId.is_valid(guardian_id):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid guardian ID format"
-        )
+    # Verify guardian exists - try both string and ObjectId formats
+    guardian = None
+    try:
+        # First try as ObjectId
+        guardian = await db.users.find_one({
+            "_id": ObjectId(guardian_id),
+            "role": "guardian",
+            "is_active": True
+        })
+    except:
+        pass
     
-    # Verify guardian exists
-    guardian = await db.users.find_one({
-        "_id": ObjectId(guardian_id),
-        "role": "guardian",
-        "is_active": True
-    })
+    if not guardian:
+        # Try as string
+        guardian = await db.users.find_one({
+            "_id": guardian_id,
+            "role": "guardian",
+            "is_active": True
+        })
     
     if not guardian:
         raise HTTPException(
@@ -46,7 +52,10 @@ async def create_child(guardian_id: str, child_data: ChildIn) -> ChildOut:
     
     # Create child document
     child_dict = child_data.dict()
-    child_dict["guardian_id"] = ObjectId(guardian_id)
+    # Store guardian_id as string to maintain consistency
+    child_dict["guardian_id"] = guardian_id
+    # Explicitly set is_active to True
+    child_dict["is_active"] = True
     
     child_in_db = ChildDB(**child_dict)
     
@@ -56,8 +65,10 @@ async def create_child(guardian_id: str, child_data: ChildIn) -> ChildOut:
         child_doc = child_in_db.dict(by_alias=True)
         if "_id" in child_doc:
             del child_doc["_id"]
-        # Ensure guardian_id is stored as ObjectId, not string
-        child_doc["guardian_id"] = ObjectId(guardian_id)
+        # Store guardian_id as string
+        child_doc["guardian_id"] = guardian_id
+        # Explicitly set is_active to True
+        child_doc["is_active"] = True
         # Convert date_of_birth to datetime for MongoDB compatibility
         if "date_of_birth" in child_doc:
             from datetime import datetime
@@ -76,8 +87,7 @@ async def create_child(guardian_id: str, child_data: ChildIn) -> ChildOut:
         # Convert ObjectIds to strings for response
         if "_id" in created_child:
             created_child["_id"] = str(created_child["_id"])
-        if "guardian_id" in created_child:
-            created_child["guardian_id"] = str(created_child["guardian_id"])
+        # guardian_id is already stored as string
         
         # Convert datetime back to date for date_of_birth
         if "date_of_birth" in created_child and hasattr(created_child["date_of_birth"], 'date'):
@@ -116,20 +126,18 @@ async def get_children_by_guardian(guardian_id: str) -> List[ChildOut]:
     """
     db = await get_database()
     
-    # Validate guardian_id format
-    if not ObjectId.is_valid(guardian_id):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid guardian ID format"
-        )
-    
     try:
         # Find all active children for this guardian
         # Handle both ObjectId and string formats for backward compatibility
+        # Also handle case where is_active might be missing (treat as active)
         query = {
             "$or": [
-                {"guardian_id": ObjectId(guardian_id), "is_active": True},
-                {"guardian_id": guardian_id, "is_active": True}
+                {"guardian_id": ObjectId(guardian_id)},  # Match ObjectId
+                {"guardian_id": guardian_id},  # Match string
+            ],
+            "$or": [
+                {"is_active": True},
+                {"is_active": {"$exists": False}}  # Include children without is_active field
             ]
         }
         print(f"🔍 DEBUG: Searching for children with query: {query}")
@@ -144,7 +152,7 @@ async def get_children_by_guardian(guardian_id: str) -> List[ChildOut]:
         for child in children:
             if "_id" in child:
                 child["_id"] = str(child["_id"])
-            if "guardian_id" in child:
+            if "guardian_id" in child and isinstance(child["guardian_id"], ObjectId):
                 child["guardian_id"] = str(child["guardian_id"])
             
             # Convert datetime back to date for date_of_birth
@@ -182,29 +190,27 @@ async def get_child_by_id(child_id: str, guardian_id: str) -> Optional[ChildOut]
     """
     db = await get_database()
     
-    # Validate ID formats
-    if not ObjectId.is_valid(child_id):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid child ID format"
-        )
-    
-    if not ObjectId.is_valid(guardian_id):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid guardian ID format"
-        )
-    
     try:
+        # Validate child_id format
+        if not ObjectId.is_valid(child_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid child ID format"
+            )
+        
         # Find child that belongs to this guardian
         # Handle both ObjectId and string formats for guardian_id
+        # Also handle case where is_active might be missing (treat as active)
         child = await db.children.find_one({
             "_id": ObjectId(child_id),
             "$or": [
-                {"guardian_id": ObjectId(guardian_id)},
+                {"guardian_id": ObjectId(guardian_id) if ObjectId.is_valid(guardian_id) else guardian_id},
                 {"guardian_id": guardian_id}
             ],
-            "is_active": True
+            "$or": [
+                {"is_active": True},
+                {"is_active": {"$exists": False}}  # Include children without is_active field
+            ]
         })
         
         if not child:
@@ -216,7 +222,7 @@ async def get_child_by_id(child_id: str, guardian_id: str) -> Optional[ChildOut]
         # Convert ObjectIds to strings
         if "_id" in child:
             child["_id"] = str(child["_id"])
-        if "guardian_id" in child:
+        if "guardian_id" in child and isinstance(child["guardian_id"], ObjectId):
             child["guardian_id"] = str(child["guardian_id"])
         
         # Convert datetime back to date for date_of_birth
@@ -255,29 +261,27 @@ async def update_child(child_id: str, guardian_id: str, child_data: ChildIn) -> 
     """
     db = await get_database()
     
-    # Validate ID formats
-    if not ObjectId.is_valid(child_id):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid child ID format"
-        )
-    
-    if not ObjectId.is_valid(guardian_id):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid guardian ID format"
-        )
-    
     try:
+        # Validate child_id format
+        if not ObjectId.is_valid(child_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid child ID format"
+            )
+        
         # Verify child exists and belongs to guardian
         # Handle both ObjectId and string formats for guardian_id
+        # Also handle case where is_active might be missing (treat as active)
         existing_child = await db.children.find_one({
             "_id": ObjectId(child_id),
             "$or": [
-                {"guardian_id": ObjectId(guardian_id)},
+                {"guardian_id": ObjectId(guardian_id) if ObjectId.is_valid(guardian_id) else guardian_id},
                 {"guardian_id": guardian_id}
             ],
-            "is_active": True
+            "$or": [
+                {"is_active": True},
+                {"is_active": {"$exists": False}}  # Include children without is_active field
+            ]
         })
         
         if not existing_child:
@@ -298,8 +302,12 @@ async def update_child(child_id: str, guardian_id: str, child_data: ChildIn) -> 
             {
                 "_id": ObjectId(child_id),
                 "$or": [
-                    {"guardian_id": ObjectId(guardian_id)},
+                    {"guardian_id": ObjectId(guardian_id) if ObjectId.is_valid(guardian_id) else guardian_id},
                     {"guardian_id": guardian_id}
+                ],
+                "$or": [
+                    {"is_active": True},
+                    {"is_active": {"$exists": False}}  # Include children without is_active field
                 ]
             },
             {"$set": update_data}
@@ -317,7 +325,7 @@ async def update_child(child_id: str, guardian_id: str, child_data: ChildIn) -> 
         # Convert ObjectIds to strings
         if "_id" in updated_child:
             updated_child["_id"] = str(updated_child["_id"])
-        if "guardian_id" in updated_child:
+        if "guardian_id" in updated_child and isinstance(updated_child["guardian_id"], ObjectId):
             updated_child["guardian_id"] = str(updated_child["guardian_id"])
         
         # Convert datetime back to date for date_of_birth
@@ -355,26 +363,28 @@ async def delete_child(child_id: str, guardian_id: str) -> bool:
     """
     db = await get_database()
     
-    # Validate ID formats
-    if not ObjectId.is_valid(child_id):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid child ID format"
-        )
-    
-    if not ObjectId.is_valid(guardian_id):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid guardian ID format"
-        )
-    
     try:
+        # Validate child_id format
+        if not ObjectId.is_valid(child_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid child ID format"
+            )
+        
         # Soft delete by setting is_active to False
+        # Handle both ObjectId and string formats for guardian_id
+        # Also handle case where is_active might be missing (treat as active)
         result = await db.children.update_one(
             {
                 "_id": ObjectId(child_id),
-                "guardian_id": ObjectId(guardian_id),
-                "is_active": True
+                "$or": [
+                    {"guardian_id": ObjectId(guardian_id) if ObjectId.is_valid(guardian_id) else guardian_id},
+                    {"guardian_id": guardian_id}
+                ],
+                "$or": [
+                    {"is_active": True},
+                    {"is_active": {"$exists": False}}  # Include children without is_active field
+                ]
             },
             {"$set": {"is_active": False}}
         )

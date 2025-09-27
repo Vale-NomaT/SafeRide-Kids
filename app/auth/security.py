@@ -3,6 +3,7 @@ from typing import Optional, Union
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import HTTPException, status
+from datetime import datetime, timedelta
 from app.config import settings
 from app.models.user import TokenData
 
@@ -40,11 +41,12 @@ def verify_token(token: str, credentials_exception: HTTPException) -> TokenData:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
         email: str = payload.get("sub")
         role: str = payload.get("role")
+        user_id: str = payload.get("user_id")
         
         if email is None:
             raise credentials_exception
             
-        token_data = TokenData(email=email, role=role)
+        token_data = TokenData(email=email, role=role, user_id=user_id)
         return token_data
     except JWTError:
         raise credentials_exception

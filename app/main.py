@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import time
@@ -44,6 +45,7 @@ app.add_middleware(
         "http://localhost:19006",     # Expo development server
         "exp://localhost:19000",      # Expo client
         "http://localhost:8081",      # React Native Metro bundler
+        "http://192.168.137.1:8001",  # PC Hotspot IP for mobile device testing
         "*"                           # Allow all origins for development
     ],
     allow_credentials=True,
@@ -109,11 +111,21 @@ async def root():
         "health": "/health"
     }
 
+# Debug router inclusion
+print("🔍 Debugging router inclusion...")
+print(f"   Auth router type: {type(auth_router)}")
+print(f"   Auth router routes count: {len(auth_router.routes)}")
+print(f"   Child router type: {type(child_router)}")
+print(f"   Child router routes count: {len(child_router.routes)}")
+
 # Include routers
+print("🔄 Including auth router...")
 app.include_router(auth_router)
+print("🔄 Including child router...")
 app.include_router(child_router)
+print(f"✅ App routes after inclusion: {len(app.routes)}")
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8001, reload=True)

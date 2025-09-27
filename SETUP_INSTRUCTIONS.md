@@ -4,7 +4,7 @@
 - Node.js (v16 or higher)
 - Expo CLI (`npm install -g expo-cli`)
 - React Native development environment
-- Your backend API running on port 8000
+- Your backend API running on port 8001
 
 ## Installation Steps
 
@@ -19,7 +19,7 @@
    - To find your IP:
      - Windows: Run `ipconfig` in Command Prompt
      - Mac/Linux: Run `ifconfig` in Terminal
-   - Update the line: `const API_BASE_URL = 'http://YOUR_LOCAL_IP:8000';`
+   - Update the line: `const API_BASE_URL = 'http://YOUR_LOCAL_IP:8001';`
 
 3. **Start the Development Server**
    ```bash
@@ -101,7 +101,7 @@ SafeRide-Kids/
    ```
 
 3. **API connection issues**
-   - Ensure your backend is running on port 8000
+   - Ensure your backend is running on port 8001
    - Check that your IP address is correct in `services/api.js`
    - Make sure your device/simulator can reach your development machine
 

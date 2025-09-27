@@ -55,21 +55,21 @@ Ensure MongoDB is running locally or update `MONGO_URI` in `.env`
 ### 4. Run Application
 ```bash
 # Development mode
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
 
 # Or using Python
 python -m app.main
 ```
 
 ### 5. Access API Documentation
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
+- Swagger UI: http://localhost:8001/docs
+- ReDoc: http://localhost:8001/redoc
 
 ## API Usage Examples
 
 ### Register User
 ```bash
-curl -X POST "http://localhost:8000/auth/register" \
+curl -X POST "http://localhost:8001/auth/register" \
   -H "Content-Type: application/json" \
   -d '{
     "email": "admin@saferide.com",
@@ -81,14 +81,14 @@ curl -X POST "http://localhost:8000/auth/register" \
 
 ### Login
 ```bash
-curl -X POST "http://localhost:8000/auth/login" \
+curl -X POST "http://localhost:8001/auth/login" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "username=admin@saferide.com&password=securepass123"
 ```
 
 ### Access Protected Route
 ```bash
-curl -X GET "http://localhost:8000/admin/dashboard" \
+curl -X GET "http://localhost:8001/admin/dashboard" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 

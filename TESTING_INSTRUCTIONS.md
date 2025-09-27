@@ -24,11 +24,10 @@ This document provides step-by-step instructions for testing the SafeRide Kids m
 cd "C:\Users\samuel.ndlovu\Saved Games\SafeRide-Kids"
 
 # Start FastAPI server
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
+uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 
 **Expected Output:**
-- Server running on `http://0.0.0.0:8000`
+- Server running on `http://0.0.0.0:8001`
 - MongoDB connection successful
 - Auto-reload enabled
 
@@ -58,7 +57,7 @@ npx expo start --lan --clear --reset-cache
    - Verify connection in device WiFi settings
 
 3. **Verify API Configuration:**
-   - The app should automatically use `http://192.168.137.1:8000`
+   - The app should automatically use `http://192.168.137.1:8001`
    - This IP is configured in `services/api.js`
 
 #### Option B: Same WiFi Network
@@ -79,7 +78,7 @@ npx expo start --lan --clear --reset-cache
 ```bash
 # Test API accessibility from mobile browser
 # Open mobile browser and navigate to:
-http://192.168.137.1:8000/health
+http://192.168.137.1:8001/health
 ```
 
 **Expected Response:**
@@ -142,7 +141,7 @@ Existing Test Account:
 
 2. **Test API Manually:**
    ```bash
-   curl http://192.168.137.1:8000/health
+   curl http://192.168.137.1:8001/health
    ```
 
 3. **Disable Windows Firewall (temporarily):**
@@ -174,14 +173,14 @@ Existing Test Account:
 ## 📊 Testing Checklist
 
 ### ✅ Pre-Testing Setup
-- [ ] FastAPI server running on port 8000
+- [ ] FastAPI server running on port 8001
 - [ ] Expo server running with QR code visible
 - [ ] Mobile device connected to PC hotspot or same WiFi
 - [ ] MongoDB accessible and connected
 
 ### ✅ Network Connectivity
 - [ ] Health endpoint accessible from mobile browser
-- [ ] API base URL correctly configured (192.168.137.1:8000)
+- [ ] API base URL correctly configured (192.168.137.1:8001)
 - [ ] No firewall blocking connections
 
 ### ✅ Registration Testing
@@ -223,7 +222,7 @@ Existing Test Account:
 ipconfig
 
 # Test API connectivity
-curl http://192.168.137.1:8000/health
+curl http://192.168.137.1:8001/health
 
 # View real-time logs
 # FastAPI logs in terminal 6

@@ -1,5 +1,6 @@
-from motor.motor_asyncio import AsyncIOMotorClient
 from typing import Optional
+from typing import Optional
+from motor.motor_asyncio import AsyncIOMotorClient
 from app.config import settings
 import logging
 

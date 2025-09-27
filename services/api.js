@@ -6,9 +6,9 @@ import { Platform } from 'react-native';
 // For web development, use localhost. For mobile device testing, use your local IP
 const getApiBaseUrl = () => {
   if (Platform.OS === 'web') {
-    return 'http://localhost:8000'; // Use localhost for web to avoid CORS issues
+    return 'http://localhost:8001'; // Use localhost for web to avoid CORS issues
   }
-  return 'http://192.168.137.1:8000'; // PC Hotspot IP for mobile device testing
+  return 'http://192.168.137.1:8001'; // PC Hotspot IP for mobile device testing
 };
 
 const API_BASE_URL = getApiBaseUrl();

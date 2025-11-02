@@ -6,6 +6,7 @@ import LoginScreen from '../screens/LoginScreen';
 import SignupScreen from '../screens/SignupScreen';
 import HomeScreen from '../screens/HomeScreen';
 import AddChildScreen from '../screens/AddChildScreen';
+import EditChildScreen from '../screens/EditChildScreen';
 
 const Stack = createStackNavigator();
 
@@ -53,6 +54,13 @@ const AppNavigator = () => {
         component={AddChildScreen}
         options={{
           title: 'Add Child',
+        }}
+      />
+      <Stack.Screen 
+        name="EditChild" 
+        component={EditChildScreen}
+        options={{
+          title: 'Edit Child',
         }}
       />
     </Stack.Navigator>

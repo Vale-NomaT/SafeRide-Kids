@@ -181,6 +181,15 @@ const HomeScreen = ({ navigation }) => {
                   <Text style={styles.childDetail}>DOB: {child.date_of_birth}</Text>
                   <Text style={styles.childDetail}>Home: {child.home_address}</Text>
                   <Text style={styles.childDetail}>School: {child.school_name} - {child.school_address}</Text>
+                  <TouchableOpacity 
+                    style={styles.editButton}
+                    onPress={() => {
+                      closeChildrenModal();
+                      navigation.navigate('EditChild', { childId: child._id || child.id });
+                    }}
+                  >
+                    <Text style={styles.editButtonText}>Edit</Text>
+                  </TouchableOpacity>
                 </View>
               ))}
             </View>
@@ -199,6 +208,18 @@ const HomeScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  editButton: {
+    backgroundColor: '#4A90E2',
+    padding: 8,
+    borderRadius: 6,
+    marginTop: 10,
+    alignSelf: 'flex-end',
+  },
+  editButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
+  },
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',

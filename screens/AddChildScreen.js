@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,9 @@ import * as ImagePicker from 'expo-image-picker';
 // For date picker
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Location from 'expo-location';
+import MapView, { Marker } from 'react-native-maps';
+import { Ionicons } from '@expo/vector-icons';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 const { width, height } = Dimensions.get('window');
 
@@ -46,10 +49,19 @@ const AddChildScreen = ({ navigation }) => {
   });
 
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showMapModal, setShowMapModal] = useState(false);
   const [currentMapType, setCurrentMapType] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Map related state
+  const [showMapModal, setShowMapModal] = useState(false);
+  const [mapRegion, setMapRegion] = useState({
+    latitude: 37.78825,
+    longitude: -122.4324,
+    latitudeDelta: 0.0922,
+    longitudeDelta: 0.0421,
+  });
+  const [selectedLocation, setSelectedLocation] = useState(null);
 
   // Watch form values
   const watchedValues = watch();
@@ -145,6 +157,15 @@ const AddChildScreen = ({ navigation }) => {
           const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
           const { latitude, longitude } = position.coords;
           const coordinates = [longitude, latitude];
+          
+          // Update map region
+          setMapRegion({
+            latitude,
+            longitude,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+          });
+          
           if (type === 'home') {
             setValue('home_coordinates', coordinates);
             setValue('home_address', `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
@@ -158,6 +179,100 @@ const AddChildScreen = ({ navigation }) => {
           Alert.alert('Location Error', 'Failed to get current location.');
         }
       })();
+    }
+  };
+  
+  // Open map for location selection
+  const openMapSelector = (type) => {
+    setCurrentMapType(type);
+    setShowMapModal(true);
+    
+    // Try to get current location for initial map position
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          const { latitude, longitude } = position.coords;
+          
+          setMapRegion({
+            latitude,
+            longitude,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+          });
+        }
+      } catch (err) {
+        console.error('Error getting initial map position:', err);
+      }
+    })();
+  };
+  
+  // Handle map marker selection
+  const handleMapPress = (event) => {
+    const { latitude, longitude } = event.nativeEvent.coordinate;
+    setSelectedLocation({ latitude, longitude });
+  };
+  
+  // Save selected map location
+  const saveMapLocation = async () => {
+    if (!selectedLocation) {
+      Alert.alert('Error', 'Please select a location on the map first');
+      return;
+    }
+    
+    const { latitude, longitude } = selectedLocation;
+    const coordinates = [longitude, latitude];
+    
+    // Get address from coordinates if possible
+    try {
+      const addressResponse = await Location.reverseGeocodeAsync({
+        latitude,
+        longitude
+      });
+      
+      let addressText = '';
+      if (addressResponse && addressResponse.length > 0) {
+        const address = addressResponse[0];
+        addressText = [
+          address.street,
+          address.city,
+          address.region,
+          address.postalCode,
+          address.country
+        ].filter(Boolean).join(', ');
+      } else {
+        addressText = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+      }
+      
+      if (currentMapType === 'home') {
+        setValue('home_coordinates', coordinates);
+        setValue('home_address', addressText);
+      } else if (currentMapType === 'school') {
+        setValue('school_coordinates', coordinates);
+        setValue('school_address', addressText);
+      }
+      
+      setShowMapModal(false);
+      setSelectedLocation(null);
+      Alert.alert('Location Set', `${currentMapType} location has been set successfully`);
+    } catch (error) {
+      console.error('Error getting address:', error);
+      
+      // Fallback to coordinates if geocoding fails
+      const addressText = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+      
+      if (currentMapType === 'home') {
+        setValue('home_coordinates', coordinates);
+        setValue('home_address', addressText);
+      } else if (currentMapType === 'school') {
+        setValue('school_coordinates', coordinates);
+        setValue('school_address', addressText);
+      }
+      
+      setShowMapModal(false);
+      setSelectedLocation(null);
+      Alert.alert('Location Set', `${currentMapType} location has been set successfully`);
     }
   };
 
@@ -225,6 +340,51 @@ const AddChildScreen = ({ navigation }) => {
     }
   };
 
+  // Map Modal Component
+  const renderMapModal = () => {
+    return (
+      <Modal
+        animationType="slide"
+        transparent={false}
+        visible={showMapModal}
+        onRequestClose={() => setShowMapModal(false)}
+      >
+        <View style={styles.mapModalContainer}>
+          <Text style={styles.mapTitle}>Select {currentMapType} Location</Text>
+          
+          <MapView
+            style={styles.map}
+            region={mapRegion}
+            onPress={handleMapPress}
+          >
+            {selectedLocation && (
+              <Marker
+                coordinate={selectedLocation}
+                title={`Selected ${currentMapType} Location`}
+              />
+            )}
+          </MapView>
+          
+          <View style={styles.mapButtonContainer}>
+            <TouchableOpacity 
+              style={[styles.button, styles.cancelButton]} 
+              onPress={() => setShowMapModal(false)}
+            >
+              <Text style={styles.buttonText}>Cancel</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.button, styles.saveButton]} 
+              onPress={saveMapLocation}
+            >
+              <Text style={styles.buttonText}>Save Location</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -236,6 +396,7 @@ const AddChildScreen = ({ navigation }) => {
         </TouchableOpacity>
         <Text style={styles.title}>Add Child</Text>
       </View>
+      {renderMapModal()}
 
       <View style={styles.form}>
         {/* Child Name */}
@@ -388,12 +549,20 @@ const AddChildScreen = ({ navigation }) => {
               />
             )}
           />
-          <TouchableOpacity
-            style={styles.locationButton}
-            onPress={() => handleLocationSelect('home')}
-          >
-            <Text style={styles.locationButtonText}>📍 Use Current Location</Text>
-          </TouchableOpacity>
+          <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+            <TouchableOpacity
+              style={[styles.locationButton, {flex: 1, marginRight: 5}]}
+              onPress={() => handleLocationSelect('home')}
+            >
+              <Text style={styles.locationButtonText}>📍 Use Current Location</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.locationButton, {flex: 1, marginLeft: 5}]}
+              onPress={() => openMapSelector('home')}
+            >
+              <Text style={styles.locationButtonText}>🗺️ Select on Map</Text>
+            </TouchableOpacity>
+          </View>
           {errors.home_address && <Text style={styles.errorText}>{errors.home_address.message}</Text>}
         </View>
 
@@ -432,12 +601,20 @@ const AddChildScreen = ({ navigation }) => {
             )}
           />
           {errors.school_address && <Text style={styles.errorText}>{errors.school_address.message}</Text>}
-          <TouchableOpacity
-            style={styles.locationButton}
-            onPress={() => handleLocationSelect('school')}
-          >
-            <Text style={styles.locationButtonText}>📍 Use Current Location</Text>
-          </TouchableOpacity>
+          <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+            <TouchableOpacity
+              style={[styles.locationButton, {flex: 1, marginRight: 5}]}
+              onPress={() => handleLocationSelect('school')}
+            >
+              <Text style={styles.locationButtonText}>📍 Use Current Location</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.locationButton, {flex: 1, marginLeft: 5}]}
+              onPress={() => openMapSelector('school')}
+            >
+              <Text style={styles.locationButtonText}>🗺️ Select on Map</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Submit Button */}
@@ -599,6 +776,36 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  // Map modal styles
+  mapModalContainer: {
+    flex: 1,
+    padding: 20,
+  },
+  mapTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  map: {
+    width: '100%',
+    height: height * 0.6,
+    borderRadius: 10,
+    marginBottom: 20,
+  },
+  mapButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  cancelButton: {
+    backgroundColor: '#dc3545',
+    flex: 1,
+    marginRight: 5,
+  },
+  saveButton: {
+    flex: 1,
+    marginLeft: 5,
   },
 });
 

@@ -131,13 +131,15 @@ async def get_children_by_guardian(guardian_id: str) -> List[ChildOut]:
         # Handle both ObjectId and string formats for backward compatibility
         # Also handle case where is_active might be missing (treat as active)
         query = {
-            "$or": [
-                {"guardian_id": ObjectId(guardian_id)},  # Match ObjectId
-                {"guardian_id": guardian_id},  # Match string
-            ],
-            "$or": [
-                {"is_active": True},
-                {"is_active": {"$exists": False}}  # Include children without is_active field
+            "$and": [
+                {"$or": [
+                    {"guardian_id": ObjectId(guardian_id)},  # Match ObjectId
+                    {"guardian_id": guardian_id},  # Match string
+                ]},
+                {"$or": [
+                    {"is_active": True},
+                    {"is_active": {"$exists": False}}  # Include children without is_active field
+                ]}
             ]
         }
         print(f"🔍 DEBUG: Searching for children with query: {query}")

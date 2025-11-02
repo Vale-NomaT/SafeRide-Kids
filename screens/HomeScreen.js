@@ -8,22 +8,43 @@ import {
   ActivityIndicator,
   SafeAreaView,
   ScrollView,
+  Modal,
 } from 'react-native';
 import { logout } from '../services/api';
+import api from '../services/api';
 
 const HomeScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
+  const [childrenModalVisible, setChildrenModalVisible] = useState(false);
+  const [childrenLoading, setChildrenLoading] = useState(false);
+  const [children, setChildren] = useState([]);
 
   const navigateToAddChild = () => {
     navigation.navigate('AddChild');
   };
 
+  const fetchChildren = async () => {
+    try {
+      setChildrenLoading(true);
+      const response = await api.get('/children/me');
+      setChildren(response.data || []);
+    } catch (error) {
+      console.error('Error fetching children:', error);
+      const msg = error.response?.data?.detail || 'Failed to load children';
+      Alert.alert('Error', msg);
+    } finally {
+      setChildrenLoading(false);
+    }
+  };
+
   const handleViewChildren = () => {
-    // Placeholder for now - will be implemented later
-    Alert.alert(
-      'Coming Soon',
-      'View Children feature will be available in the next update!'
-    );
+    setChildrenModalVisible(true);
+    fetchChildren();
+  };
+
+  const closeChildrenModal = () => {
+    setChildrenModalVisible(false);
+    setChildren([]);
   };
 
   const handleLogout = async () => {
@@ -122,6 +143,57 @@ const HomeScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Children Modal */}
+      <Modal
+        visible={childrenModalVisible}
+        animationType="slide"
+        onRequestClose={closeChildrenModal}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>My Children</Text>
+            <TouchableOpacity style={styles.modalCloseButton} onPress={closeChildrenModal}>
+              <Text style={styles.modalCloseText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+
+          {childrenLoading ? (
+            <View style={styles.modalLoadingContainer}>
+              <ActivityIndicator size="large" color="#4A90E2" />
+              <Text style={styles.modalLoadingText}>Loading children...</Text>
+            </View>
+          ) : children.length === 0 ? (
+            <View style={styles.emptyStateContainer}>
+              <Text style={styles.emptyStateTitle}>No children found</Text>
+              <Text style={styles.emptyStateText}>Add a child to see them listed here.</Text>
+              <TouchableOpacity style={styles.primaryButton} onPress={() => { closeChildrenModal(); navigateToAddChild(); }}>
+                <Text style={styles.primaryButtonText}>Add Child</Text>
+                <Text style={styles.buttonSubtext}>Register a new child for transportation</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.childrenListContainer}>
+              {children.map((child) => (
+                <View key={child._id || child.id} style={styles.childCard}>
+                  <Text style={styles.childName}>{child.name}</Text>
+                  <Text style={styles.childDetail}>Age: {child.age}</Text>
+                  <Text style={styles.childDetail}>DOB: {child.date_of_birth}</Text>
+                  <Text style={styles.childDetail}>Home: {child.home_address}</Text>
+                  <Text style={styles.childDetail}>School: {child.school_name} - {child.school_address}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          <View style={styles.modalFooter}>
+            <TouchableOpacity style={styles.secondaryButton} onPress={fetchChildren}>
+              <Text style={styles.secondaryButtonText}>Refresh</Text>
+              <Text style={styles.buttonSubtext}>Reload the latest children</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -262,6 +334,88 @@ const styles = StyleSheet.create({
     color: '#ff6b6b',
     fontSize: 16,
     fontWeight: '600',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  modalCloseButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#4A90E2',
+  },
+  modalCloseText: {
+    color: '#4A90E2',
+    fontWeight: '600',
+  },
+  modalLoadingContainer: {
+    alignItems: 'center',
+    paddingTop: 40,
+  },
+  modalLoadingText: {
+    marginTop: 12,
+    color: '#666',
+  },
+  childrenListContainer: {
+    padding: 16,
+  },
+  childCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  childName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 6,
+  },
+  childDetail: {
+    fontSize: 14,
+    color: '#555',
+    marginBottom: 3,
+  },
+  emptyStateContainer: {
+    alignItems: 'center',
+    paddingTop: 40,
+    paddingHorizontal: 20,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  modalFooter: {
+    padding: 16,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
   },
 });
 

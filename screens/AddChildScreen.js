@@ -14,11 +14,12 @@ import {
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api } from '../services/api.js';
+import api, { getToken } from '../services/api.js';
 // For mobile image picker
 import * as ImagePicker from 'expo-image-picker';
 // For date picker
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as Location from 'expo-location';
 
 const { width, height } = Dimensions.get('window');
 
@@ -32,7 +33,7 @@ const AddChildScreen = ({ navigation }) => {
   } = useForm({
     defaultValues: {
       name: '',
-      dateOfBirth: new Date(),
+      date_of_birth: new Date(),
       photo_url: '',
       allergies: '',
       notes: '',
@@ -57,7 +58,7 @@ const AddChildScreen = ({ navigation }) => {
   const handleDateChange = (event) => {
     if (Platform.OS === 'web') {
       const date = new Date(event.target.value);
-      setValue('dateOfBirth', date);
+      setValue('date_of_birth', date);
     }
   };
 
@@ -73,7 +74,7 @@ const AddChildScreen = ({ navigation }) => {
           const reader = new FileReader();
           reader.onload = (event) => {
             setSelectedImage(event.target.result);
-            setValue('photo_url', event.target.result);
+            // Do not set photo_url here since backend requires http/https URL
           };
           reader.readAsDataURL(file);
         }
@@ -97,7 +98,7 @@ const AddChildScreen = ({ navigation }) => {
         
         if (!result.canceled && result.assets && result.assets.length > 0) {
           setSelectedImage(result.assets[0].uri);
-          setValue('photo_url', result.assets[0].uri);
+          // Do not set photo_url to local file URI; backend expects http/https URL
         }
       } catch (error) {
         console.error('Image picker error:', error);
@@ -133,33 +134,75 @@ const AddChildScreen = ({ navigation }) => {
         Alert.alert('Location Error', 'Geolocation is not supported by this browser.');
       }
     } else {
-      setCurrentMapType(type);
-      setShowMapModal(true);
+      // Mobile: use expo-location to get current GPS position
+      (async () => {
+        try {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== 'granted') {
+            Alert.alert('Permission Denied', 'We need location permission to set coordinates.');
+            return;
+          }
+          const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          const { latitude, longitude } = position.coords;
+          const coordinates = [longitude, latitude];
+          if (type === 'home') {
+            setValue('home_coordinates', coordinates);
+            setValue('home_address', `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+          } else if (type === 'school') {
+            setValue('school_coordinates', coordinates);
+            setValue('school_address', `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+          }
+          Alert.alert('Location Set', `${type} location has been set to your current position`);
+        } catch (err) {
+          console.error('Location error:', err);
+          Alert.alert('Location Error', 'Failed to get current location.');
+        }
+      })();
     }
   };
+
 
   // Submit form
   const onSubmit = async (data) => {
     try {
       setIsSubmitting(true);
       
-      // Get auth token
-      const token = await AsyncStorage.getItem('authToken');
+      // Get auth token from shared API storage
+      const token = await getToken();
       if (!token) {
         Alert.alert('Error', 'Please log in again');
         navigation.navigate('Login');
         return;
       }
 
-      // Prepare data
+      // Validate required coordinate fields
+      if (!Array.isArray(data.home_coordinates) || data.home_coordinates.length < 2) {
+        Alert.alert('Location Required', 'Please set Home location using "Use Current Location".');
+        setIsSubmitting(false);
+        return;
+      }
+      if (!Array.isArray(data.school_coordinates) || data.school_coordinates.length < 2) {
+        Alert.alert('Location Required', 'Please set School location using "Use Current Location".');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Prepare data with backend field names
       const childData = {
         ...data,
-        dateOfBirth: data.dateOfBirth.toISOString().split('T')[0], // Format as YYYY-MM-DD
+        date_of_birth: data.date_of_birth instanceof Date
+          ? data.date_of_birth.toISOString().split('T')[0]
+          : data.date_of_birth,
       };
 
-      // Submit to API
+      // Remove photo_url if it's not an http/https URL
+      if (!childData.photo_url || !/^https?:\/\//.test(childData.photo_url)) {
+        delete childData.photo_url;
+      }
+
+      // Submit to API (Authorization handled by interceptor, but include header for safety)
       const response = await api.post(
-        '/children',
+        '/children/',
         childData,
         {
           headers: {
@@ -237,7 +280,7 @@ const AddChildScreen = ({ navigation }) => {
               onPress={() => setShowDatePicker(true)}
             >
               <Text style={styles.inputText}>
-                {watchedValues.dateOfBirth ? watchedValues.dateOfBirth.toDateString() : 'Select Date'}
+                {watchedValues.date_of_birth ? watchedValues.date_of_birth.toDateString() : 'Select Date'}
               </Text>
             </TouchableOpacity>
           )}
@@ -254,13 +297,13 @@ const AddChildScreen = ({ navigation }) => {
               <View style={styles.modalContent}>
                 <Text style={styles.modalTitle}>Select Date of Birth</Text>
                 <DateTimePicker
-                  value={watchedValues.dateOfBirth || new Date()}
+                  value={watchedValues.date_of_birth || new Date()}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   maximumDate={new Date()}
                   onChange={(_, selectedDate) => {
                     if (selectedDate) {
-                      setValue('dateOfBirth', selectedDate);
+                      setValue('date_of_birth', selectedDate);
                     }
                     setShowDatePicker(false);
                   }}
@@ -356,35 +399,39 @@ const AddChildScreen = ({ navigation }) => {
 
         {/* School Information */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>School Name</Text>
+          <Text style={styles.label}>School Name *</Text>
           <Controller
             control={control}
             name="school_name"
+            rules={{ required: 'School name is required' }}
             render={({ field: { onChange, value } }) => (
               <TextInput
-                style={styles.input}
+                style={[styles.input, errors.school_name && styles.inputError]}
                 placeholder="Enter school name"
                 value={value}
                 onChangeText={onChange}
               />
             )}
           />
+          {errors.school_name && <Text style={styles.errorText}>{errors.school_name.message}</Text>}
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>School Address</Text>
+          <Text style={styles.label}>School Address *</Text>
           <Controller
             control={control}
             name="school_address"
+            rules={{ required: 'School address is required' }}
             render={({ field: { onChange, value } }) => (
               <TextInput
-                style={styles.input}
+                style={[styles.input, errors.school_address && styles.inputError]}
                 placeholder="Enter school address"
                 value={value}
                 onChangeText={onChange}
               />
             )}
           />
+          {errors.school_address && <Text style={styles.errorText}>{errors.school_address.message}</Text>}
           <TouchableOpacity
             style={styles.locationButton}
             onPress={() => handleLocationSelect('school')}
